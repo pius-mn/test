@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Deposit, Withdrawal,CustomUser,Investment,Product
+from .models import Deposit, Withdrawal,CustomUser,Investment,Referral
 from django.contrib.auth.admin import UserAdmin
 
 class CustomUserAdmin(UserAdmin):
@@ -27,7 +27,7 @@ class WithdrawalAdmin(admin.ModelAdmin):
 
 @admin.register(Investment)
 class InvestmentAdmin(admin.ModelAdmin):
-    list_display=('user',  'status')
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display=('name', )
+    list_display=('user', 'amount_invested', 'status')
+@admin.register(Referral)
+class ReferralAdmin(admin.ModelAdmin):
+    list_display=('referral_code',  'referrer','amount')

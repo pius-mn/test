@@ -3,9 +3,11 @@ from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import Deposit, Referral,Withdrawal,Investment,Product,CustomUser
-from .serializers import  DepositSerializer, ProfileDepositeSerializer, ProfileInvestmentSerializer, TeamSerializer, UserSerializer,WithdrawalSerializer,InvestmentSerializer,ProfileSerializer,ProfileWithdrawSerializer
+from .models import Deposit, Referral,Withdrawal,Investment,CustomUser
+from .serializers import  DepositSerializer, ProfileDepositeSerializer, ProfileInvestmentSerializer, TeamSerializer, UserSerializer,WithdrawalSerializer,ProfileSerializer,ProfileWithdrawSerializer,InvestSerializer
 from decimal import Decimal
+from datetime import timedelta
+from django.utils import timezone
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -80,7 +82,7 @@ class WithdrawalAPIView(APIView):
                 return Response({"error": "Invalid withdrawal amount"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Check if the withdrawal amount meets the minimum withdrawal balance requirement
-            minimum_withdrawal_balance = Decimal('100.00')  # Set your minimum withdrawal balance here
+            minimum_withdrawal_balance = Decimal('0.00')  # Set your minimum withdrawal balance here
             if withdrawal_amount < minimum_withdrawal_balance:
                 return Response({"error": f"Withdrawal amount must be at least {minimum_withdrawal_balance}"}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -94,35 +96,35 @@ class WithdrawalAPIView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class InvestmentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = InvestmentSerializer(data=request.data)
-      
+        serializer = InvestSerializer(data=request.data)
+
         if serializer.is_valid():
-            product_id = serializer.validated_data.get('product_id')
+            amount_invested = serializer.validated_data['amount_invested']
+            expiration_days = serializer.validated_data['expiration_days']
+            product_name = serializer.validated_data['product_name']
             user = request.user
+            
 
-            # Fetch the product and check if it exists
-            try:
-                product = Product.objects.get(id=product_id)
-            except Product.DoesNotExist:
-                return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
-
+            # Calculate expiration date
+            expiration_date = timezone.now() + timedelta(days=expiration_days)
+           
             # Check if user has sufficient balance
-            if user.current_amount >= product.amount_invested:
-                # Create the investment
-                Investment.objects.create(
-                    user=user,
-                    product=product,
-                   
-                )
-               
-                return Response({'message': 'Investment created successfully'}, status=status.HTTP_201_CREATED)
-            else:
+            if user.current_amount < amount_invested:
                 return Response({'error': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create the investment
+            Investment.objects.create(
+                user=user,
+                amount_invested=amount_invested,
+                expiration_date=expiration_date,
+                product_name=product_name
+            )
+
+            return Response({'message': 'Investment created successfully'}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class ProfileAPIView(APIView):
@@ -164,10 +166,6 @@ class TeamAPIView(APIView):
         try:
             # Query the Referral objects with the provided referral_code
             referreral_data = Referral.objects.filter(referral_code=user_id)
-
-            # Check if any referral data is found
-            if not referreral_data.exists():
-                return Response({"error": "User data not found."}, status=404)
 
         except Exception as e:
             return Response({"error": str(e)}, status=500)

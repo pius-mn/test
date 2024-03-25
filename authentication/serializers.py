@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Referral, Deposit, Withdrawal,CustomUser,Investment
+from datetime import timedelta
+from django.utils import timezone
 
 class ReferralSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,9 +49,19 @@ class WithdrawalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Withdrawal
         fields = ['amount']
+class InvestSerializer(serializers.ModelSerializer):
+    expiration_days = serializers.IntegerField()
 
-class InvestmentSerializer(serializers.Serializer):
-    product_id = serializers.IntegerField()
+    class Meta:
+        model = Investment
+        fields = ['amount_invested', 'expiration_days','product_name']
+
+    def create(self, validated_data):
+        expiration_days = validated_data.pop('expiration_days')  # Extract expiration_days
+        expiration_date =timezone.now()+timedelta(days=expiration_days)
+        validated_data['expiration_date'] = expiration_date  # Add expiration_date to validated data
+        return super().create(validated_data)
+
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
@@ -63,14 +75,12 @@ class ProfileDepositeSerializer(serializers.ModelSerializer):
         model = Deposit
         fields = ('amount','status')
 class ProfileInvestmentSerializer(serializers.ModelSerializer):
-    product_name = serializers.SerializerMethodField()
+   
 
     class Meta:
         model = Investment
-        fields = ['id', 'product', 'product_name', 'investment_date', 'status']
+        fields = ['id', 'product_name', 'investment_date', 'status']
 
-    def get_product_name(self, obj):
-        return obj.product.name
 class TeamSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
 
